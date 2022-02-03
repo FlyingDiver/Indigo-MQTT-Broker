@@ -5,10 +5,7 @@
 import logging
 import asyncio
 from amqtt.broker import Broker
-try:
-    import indigo
-except ImportError as error:
-    print(f"Error importing indigo: {error}")
+import indigo # noqa
 
 # Need to expose some of these parameters in plugin config dialog
 
@@ -30,20 +27,6 @@ broker_config = {
     },
 }
 
-do_shutdown = False
-
-async def start_broker(broker):
-    await broker.start()
-
-async def stop_broker(broker):
-    global do_shutdown
-
-    while True:
-        await asyncio.sleep(1.0)
-        if do_shutdown:
-            await broker.shutdown()
-            break
-
 ################################################################################
 class Plugin(indigo.PluginBase):
 
@@ -57,19 +40,29 @@ class Plugin(indigo.PluginBase):
         self.plugin_file_handler.setFormatter(log_format)
         self.logger.debug(f"MQTT Connector: logLevel = {self.logLevel}")
 
+        port = pluginPrefs.get(u"port", None)
+        if port:
+            broker_config["listeners"]["default"]["bind"] = f"0.0.0.0:{port}"
+
     def runConcurrentThread(self):
         self.logger.debug("RunConcurrentThread")
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        self.logger.debug(f"Creating Broker with config = {broker_config}")
         broker = Broker(broker_config, loop)
-        loop.run_until_complete(start_broker(broker))
-        loop.run_until_complete(stop_broker(broker))
+        loop.run_until_complete(self.start_broker(broker))
+        loop.run_until_complete(self.stop_broker(broker))
 
-    def stopConcurrentThread(self):
-        self.stopThread = True
-        global do_shutdown
-        do_shutdown = True
+    async def start_broker(self, broker):
+        await broker.start()
+
+    async def stop_broker(self, broker):
+        while True:
+            await asyncio.sleep(1.0)
+            if self.stopThread:
+                await broker.shutdown()
+                break
 
     ########################################
     # Plugin Preference Methods
