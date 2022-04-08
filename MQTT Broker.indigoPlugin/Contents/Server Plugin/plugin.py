@@ -33,10 +33,9 @@ class Plugin(indigo.PluginBase):
     def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
         indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
 
-        self.logLevel = int(pluginPrefs.get(u"logLevel", logging.INFO))
+        self.logLevel = int(pluginPrefs.get("logLevel", logging.INFO))
         self.indigo_log_handler.setLevel(self.logLevel)
-        log_format = logging.Formatter('%(asctime)s.%(msecs)03d\t[%(levelname)8s] %(name)20s.%(funcName)-25s%(msg)s',
-                                       datefmt='%Y-%m-%d %H:%M:%S')
+        log_format = logging.Formatter('%(asctime)s.%(msecs)03d\t[%(levelname)8s] %(name)20s.%(funcName)-25s%(msg)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.plugin_file_handler.setFormatter(log_format)
         self.logger.debug(f"MQTT Connector: logLevel = {self.logLevel}")
 
@@ -61,6 +60,7 @@ class Plugin(indigo.PluginBase):
         while True:
             await asyncio.sleep(1.0)
             if self.stopThread:
+                self.logger.debug("Shutting down broker")
                 await broker.shutdown()
                 break
 
@@ -71,7 +71,7 @@ class Plugin(indigo.PluginBase):
     def closedPrefsConfigUi(self, valuesDict, userCancelled):
         if not userCancelled:
             try:
-                self.logLevel = int(valuesDict[u"logLevel"])
+                self.logLevel = int(valuesDict["logLevel"])
             except ValueError:
                 self.logLevel = logging.INFO
             self.indigo_log_handler.setLevel(self.logLevel)
