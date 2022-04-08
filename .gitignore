@@ -2,3 +2,5 @@
 .DS_Store
 
 MQTT Broker.indigoPlugin/.idea/
+
+*.pyc
