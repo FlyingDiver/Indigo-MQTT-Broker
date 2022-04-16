@@ -3,11 +3,14 @@
 <plist version="1.0">
 <dict>
 	<key>PluginVersion</key>
-	<string>0.0.0</string>
+	<string>2022.0.0</string>
 	<key>ServerApiVersion</key>
 	<string>3.0</string>
 	<key>IwsApiVersion</key>
 	<string>1.0.0</string>
+	<key>LoadPriority</key>
+	<integer>101</integer>
+	<key>CFBundleDisplayName</key>
 	<key>CFBundleName</key>
 	<string>MQTT Broker</string>
 	<key>CFBundleDisplayName</key>

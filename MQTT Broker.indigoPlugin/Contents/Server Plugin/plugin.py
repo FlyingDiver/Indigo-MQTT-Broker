@@ -44,7 +44,7 @@ class Plugin(indigo.PluginBase):
             broker_config["listeners"]["default"]["bind"] = f"0.0.0.0:{port}"
 
     def runConcurrentThread(self):
-        self.logger.debug("RunConcurrentThread")
+        self.logger.debug("RunConcurrentThread starting")
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -53,14 +53,18 @@ class Plugin(indigo.PluginBase):
         loop.run_until_complete(self.start_broker(broker))
         loop.run_until_complete(self.stop_broker(broker))
 
+        self.logger.debug("RunConcurrentThread ending")
+
     async def start_broker(self, broker):
+        self.logger.debug("start_broker")
         await broker.start()
 
     async def stop_broker(self, broker):
+        self.logger.debug("stop_broker")
         while True:
             await asyncio.sleep(1.0)
             if self.stopThread:
-                self.logger.debug("Shutting down broker")
+                self.logger.debug("stop_broker: shutdown()")
                 await broker.shutdown()
                 break
 
