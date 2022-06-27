@@ -128,7 +128,7 @@ class ProtocolHandler:
             raise ProtocolHandlerException("Handler is not attached to a stream")
         self._reader_ready = asyncio.Event()
         self._reader_task = asyncio.Task(self._reader_loop())
-        await asyncio.wait([self._reader_ready.wait()])
+        await self._reader_ready.wait()
         if self.keepalive_timeout:
             self._keepalive_task = self._loop.call_later(
                 self.keepalive_timeout, self.handle_write_timeout
@@ -146,7 +146,7 @@ class ProtocolHandler:
         self.logger.debug("waiting for tasks to be stopped")
         if not self._reader_task.done():
             self._reader_task.cancel()
-            await asyncio.wait([self._reader_stopped.wait()])
+            await self._reader_stopped.wait()
         self.logger.debug("closing writer")
         try:
             await self.writer.close()
@@ -176,7 +176,11 @@ class ProtocolHandler:
         for message in itertools.chain(
             self.session.inflight_in.values(), self.session.inflight_out.values()
         ):
-            tasks.append(asyncio.wait_for(self._handle_message_flow(message), 10))
+            tasks.append(
+                asyncio.create_task(
+                    asyncio.wait_for(self._handle_message_flow(message), 10)
+                )
+            )
         if tasks:
             done, pending = await asyncio.wait(tasks)
             self.logger.debug("%d messages redelivered" % len(done))

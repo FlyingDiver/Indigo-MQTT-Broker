@@ -65,15 +65,11 @@ class RetainedApplicationMessage:
 
 
 class Server:
-    def __init__(self, listener_name, server_instance, max_connections=-1, loop=None):
+    def __init__(self, listener_name, server_instance, max_connections=-1):
         self.logger = logging.getLogger(__name__)
         self.instance = server_instance
         self.conn_count = 0
         self.listener_name = listener_name
-        if loop is not None:
-            self._loop = loop
-        else:
-            self._loop = asyncio.get_event_loop()
 
         self.max_connections = max_connections
         if self.max_connections > 0:
@@ -318,7 +314,7 @@ class Broker:
                         ssl=sc,
                     )
                     self._servers[listener_name] = Server(
-                        listener_name, instance, max_connections, self._loop
+                        listener_name, instance, max_connections
                     )
                 elif listener["type"] == "ws":
                     cb_partial = partial(self.ws_connected, listener_name=listener_name)
@@ -327,11 +323,10 @@ class Broker:
                         address,
                         port,
                         ssl=sc,
-                        loop=self._loop,
                         subprotocols=["mqtt"],
                     )
                     self._servers[listener_name] = Server(
-                        listener_name, instance, max_connections, self._loop
+                        listener_name, instance, max_connections
                     )
 
                 self.logger.info(
@@ -458,9 +453,6 @@ class Broker:
             client_session.keep_alive += self.config["timeout-disconnect-delay"]
         self.logger.debug("Keep-alive timeout=%d" % client_session.keep_alive)
 
-        handler.attach(client_session, reader, writer)
-        self._sessions[client_session.client_id] = (client_session, handler)
-
         authenticated = await self.authenticate(
             client_session, self.listeners_config[listener_name]
         )
@@ -475,12 +467,26 @@ class Broker:
                 break
             except (MachineError, ValueError):
                 # Backwards compat: MachineError is raised by transitions < 0.5.0.
-                self.logger.warning(
-                    "Client %s is reconnecting too quickly, make it wait"
-                    % client_session.client_id
-                )
-                # Wait a bit may be client is reconnecting too fast
-                await asyncio.sleep(1)
+                if client_session.transitions.is_connected():
+                    self.logger.warning(
+                        "Client %s is already connected, performing take-over.",
+                        client_session.client_id,
+                    )
+                    old_session = self._sessions[client_session.client_id]
+                    await old_session[1].handle_connection_closed()
+                    await old_session[1].stop()
+                    break
+                else:
+                    self.logger.warning(
+                        "Client %s is reconnecting too quickly, make it wait"
+                        % client_session.client_id
+                    )
+                    # Wait a bit may be client is reconnecting too fast
+                    await asyncio.sleep(1)
+
+        handler.attach(client_session, reader, writer)
+        self._sessions[client_session.client_id] = (client_session, handler)
+
         await handler.mqtt_connack_authorize(authenticated)
 
         await self.plugins_manager.fire_event(
@@ -725,10 +731,16 @@ class Broker:
         :param action: What is being done with the topic?  subscribe or publish
         :return:
         """
+        topic_result = True
         topic_plugins = None
         topic_config = self.config.get("topic-check", None)
-        if topic_config and topic_config.get("enabled", False):
-            topic_plugins = topic_config.get("plugins", None)
+        # if enabled is not specified, all plugins will be used for topic filtering (backward compatibility)
+        if topic_config and "enabled" in topic_config:
+            if topic_config.get("enabled", False):
+                topic_plugins = topic_config.get("plugins", None)
+            else:
+                return topic_result
+
         returns = await self.plugins_manager.map_plugin_coro(
             "topic_filtering",
             session=session,
@@ -736,7 +748,6 @@ class Broker:
             action=action,
             filter_plugins=topic_plugins,
         )
-        topic_result = True
         if returns:
             for plugin in returns:
                 res = returns[plugin]
