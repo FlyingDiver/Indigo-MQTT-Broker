@@ -18,7 +18,9 @@ broker_config = {
     "sys_interval": 10,
     "auth": {
         "allow-anonymous": True,
-        "plugins": ["auth_anonymous"],
+        "plugins": ["auth_anonymous", "auth_user"],
+        "auth_user_name": "user",
+        "auth_user_password": "password",
     },
     "topic-check": {
         "enabled": False,
@@ -41,18 +43,21 @@ class Plugin(indigo.PluginBase):
         self._event_loop = None
         self._async_thread = None
 
-        port = pluginPrefs.get(u"port", None)
-        if port:
-            broker_config["listeners"]["default"]["bind"] = f"0.0.0.0:{port}"
+        # override the default config with the plugin prefs
+
+        host = pluginPrefs.get("host", "0.0.0.0")
+        port = pluginPrefs.get("port", "1883")
+        broker_config["listeners"]["default"]["bind"] = f"{host}:{port}"
+
+        broker_config["auth"]["auth_user_name"] = pluginPrefs.get("username", None)
+        broker_config["auth"]["auth_user_password"] = pluginPrefs.get("password", None)
+
         self.logger.debug(f"Creating Broker with config = {broker_config}")
         self.broker = Broker(broker_config, self._event_loop)
 
     def closedPrefsConfigUi(self, valuesDict, userCancelled):
         if not userCancelled:
-            try:
-                self.logLevel = int(valuesDict["logLevel"])
-            except ValueError:
-                self.logLevel = logging.INFO
+            self.logLevel = int(valuesDict.get("logLevel", logging.INFO))
             self.indigo_log_handler.setLevel(self.logLevel)
 
     def startup(self):  # noqa
