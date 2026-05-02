@@ -10,11 +10,5 @@
 			<Option value="40">Error Messages</Option>
 			<Option value="50">Critical Errors Only</Option>
 		</List>
-	</Field>			
-	<Field id="host" type="textfield" defaultValue="0.0.0.0" tooltip="Host Address">
-		<Label>Host:</Label>
-	</Field>
-	<Field id="port" type="textfield" defaultValue="1883" tooltip="Port number">
-		<Label>Port:</Label>
 	</Field>
 </PluginConfig>

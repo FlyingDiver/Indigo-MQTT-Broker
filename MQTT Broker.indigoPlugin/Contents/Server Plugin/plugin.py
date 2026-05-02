@@ -33,7 +33,6 @@ class Plugin(indigo.PluginBase):
 
     def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
         indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
-        self.pluginPrefs = pluginPrefs
 
         log_format = logging.Formatter('%(asctime)s.%(msecs)03d\t[%(levelname)8s] %(name)20s.%(funcName)-25s%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.plugin_file_handler.setFormatter(log_format)
@@ -41,7 +40,7 @@ class Plugin(indigo.PluginBase):
         self.indigo_log_handler.setLevel(self.logLevel)
         formatter = "[%(asctime)s] :: %(levelname)s - %(message)s"
         logging.basicConfig(level=self.logLevel, format=formatter)
-        self.logger.debug(f"MQTT Connector: logLevel = {self.logLevel}")
+        self.logger.debug(f"MQTT Broker: logLevel = {self.logLevel}")
 
         self._event_loop = None
         self._async_thread = None
@@ -51,6 +50,7 @@ class Plugin(indigo.PluginBase):
         if not userCancelled:
             self.logLevel = int(valuesDict.get("logLevel", logging.INFO))
             self.indigo_log_handler.setLevel(self.logLevel)
+            self.logger.debug(f"MQTT Broker: logLevel = {self.logLevel}")
 
     def startup(self):  # noqa
         self.logger.info(f"MQTT Broker starting")
@@ -75,15 +75,6 @@ class Plugin(indigo.PluginBase):
 
     async def _async_start(self):
         self.logger.debug("_async_start")
-
-        # override the default config with the plugin prefs
-
-        host = self.pluginPrefs.get("host", "0.0.0.0")
-        port = self.pluginPrefs.get("port", "1883")
-        broker_config["listeners"]["default"]["bind"] = f"{host}:{port}"
-
-        broker_config["auth"]["auth_user_name"] = self.pluginPrefs.get("username", "user")
-        broker_config["auth"]["auth_user_password"] = self.pluginPrefs.get("password", "password")
 
         self.logger.debug(f"Creating Broker with config = {broker_config}")
         self.broker = Broker(broker_config, self._event_loop)
