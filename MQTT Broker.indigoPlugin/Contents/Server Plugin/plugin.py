@@ -33,21 +33,19 @@ class Plugin(indigo.PluginBase):
 
     def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
         indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
+        self.pluginPrefs = pluginPrefs
 
         log_format = logging.Formatter('%(asctime)s.%(msecs)03d\t[%(levelname)8s] %(name)20s.%(funcName)-25s%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.plugin_file_handler.setFormatter(log_format)
         self.logLevel = int(pluginPrefs.get("logLevel", logging.INFO))
         self.indigo_log_handler.setLevel(self.logLevel)
-        self.logger.debug(f"MQTT Connector: logLevel = {self.logLevel}")
-
         formatter = "[%(asctime)s] :: %(levelname)s - %(message)s"
-
         logging.basicConfig(level=self.logLevel, format=formatter)
+        self.logger.debug(f"MQTT Connector: logLevel = {self.logLevel}")
 
         self._event_loop = None
         self._async_thread = None
         self.broker = None
-        self.pluginPrefs = pluginPrefs
 
     def closedPrefsConfigUi(self, valuesDict, userCancelled):
         if not userCancelled:
@@ -58,19 +56,6 @@ class Plugin(indigo.PluginBase):
         self.logger.info(f"MQTT Broker starting")
         self._async_thread = threading.Thread(target=self.run_async_thread)
         self._async_thread.start()
-        self.sleep(3)
-
-        # override the default config with the plugin prefs
-
-        host = self.pluginPrefs.get("host", "0.0.0.0")
-        port = self.pluginPrefs.get("port", "1883")
-        broker_config["listeners"]["default"]["bind"] = f"{host}:{port}"
-
-        broker_config["auth"]["auth_user_name"] = self.pluginPrefs.get("username", "user")
-        broker_config["auth"]["auth_user_password"] = self.pluginPrefs.get("password", "password")
-
-        self.logger.debug(f"Creating Broker with config = {broker_config}")
-        self.broker = Broker(broker_config, self._event_loop)
 
     def shutdown(self):  # noqa
         self.logger.info(f"MQTT Broker stopping")
@@ -90,6 +75,18 @@ class Plugin(indigo.PluginBase):
 
     async def _async_start(self):
         self.logger.debug("_async_start")
+
+        # override the default config with the plugin prefs
+
+        host = self.pluginPrefs.get("host", "0.0.0.0")
+        port = self.pluginPrefs.get("port", "1883")
+        broker_config["listeners"]["default"]["bind"] = f"{host}:{port}"
+
+        broker_config["auth"]["auth_user_name"] = self.pluginPrefs.get("username", "user")
+        broker_config["auth"]["auth_user_password"] = self.pluginPrefs.get("password", "password")
+
+        self.logger.debug(f"Creating Broker with config = {broker_config}")
+        self.broker = Broker(broker_config, self._event_loop)
         await self.broker.start()
 
     async def _async_stop(self):
@@ -99,3 +96,4 @@ class Plugin(indigo.PluginBase):
             if self.stopThread:
                 await self.broker.shutdown()
                 break
+        self.logger.debug("_async_stop completed")
